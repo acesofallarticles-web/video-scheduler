@@ -1,0 +1,6 @@
+openpyxl
+requests
+cloudinary
+python-dotenv
+pytz
+python-dateutil

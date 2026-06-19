@@ -1,0 +1,7 @@
+videos/
+*.mp4
+*.env
+config.env
+*key*.txt
+__pycache__/
+.venv/
