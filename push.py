@@ -62,6 +62,26 @@ def run_git(args):
 # MAIN
 # ---------------------------------------------------------------------------
 def main():
+    # 0a. Excel-lock pre-check: a pull can't update the file if Excel holds it open.
+    try:
+        with open(XLSX, "a"):
+            pass
+    except PermissionError:
+        print("Close schedule.xlsx in Excel first, then re-run push.py")
+        return
+
+    # 0. Sync first: pull the cloud's latest status write-backs before doing anything.
+    print("Syncing with origin/main before upload...")
+    pull = run_git(["git", "pull", "--no-edit", "origin", "main"])
+    combined = (pull.stdout + pull.stderr).lower()
+    if "conflict" in combined:
+        print("Conflict pulling latest — run sync.py and resolve, or ask Claude.")
+        return
+    if pull.returncode != 0:
+        print("ERROR: git pull failed (see output above). Fix the issue, then re-run push.py.")
+        return
+    print("Sync OK.\n")
+
     # 2. Open workbook
     wb = openpyxl.load_workbook(XLSX)
     ws = wb[wb.sheetnames[0]]
