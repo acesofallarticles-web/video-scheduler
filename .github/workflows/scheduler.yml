@@ -1,0 +1,49 @@
+name: Reel Scheduler
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reel-scheduler
+  cancel-in-progress: false
+
+jobs:
+  post-due-reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run worker
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: python worker.py
+
+      - name: Commit updated schedule (status write-back)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add schedule.xlsx
+          if git diff --staged --quiet; then
+            echo "No status changes to commit."
+          else
+            git commit -m "Update reel statuses [skip ci]"
+            git push
+          fi
