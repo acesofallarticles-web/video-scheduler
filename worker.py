@@ -63,10 +63,15 @@ def map_columns(ws):
 
 
 def set_status(row, value):
-    """Re-open workbook, write status to the exact row, save immediately."""
+    """Re-open workbook, write status to the exact row, save only if it changed."""
     wb, ws = open_ws()
     cols = map_columns(ws)
-    ws[f"{cols['status']}{row}"] = value
+    cell = ws[f"{cols['status']}{row}"]
+    current = "" if cell.value is None else str(cell.value)
+    if current == str(value):
+        log(f"  -> status unchanged, skipping save (row {row} already '{value}')")
+        return
+    cell.value = value
     wb.save(XLSX)
     log(f"  -> wrote Status='{value}' to row {row} and saved {XLSX}")
 

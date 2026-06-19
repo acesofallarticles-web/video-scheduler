@@ -93,6 +93,7 @@ def main():
     uploaded = 0
     skipped_existing = 0
     file_missing = 0
+    changed = False  # only save the workbook if a Video URL cell actually changed
 
     # 4. Process each data row
     for r in range(2, ws.max_row + 1):
@@ -126,12 +127,19 @@ def main():
             result = cloudinary.uploader.upload_large(video_path, resource_type="video")
             secure_url = result["secure_url"]
             ws[f"{url_col}{r}"] = secure_url
-            wb.save(XLSX)
+            changed = True
             print(f"row {r}: uploaded {name} -> {secure_url}")
             uploaded += 1
         except Exception as e:
             print(f"row {r}: UPLOAD ERROR ({name}) -> {e}")
             continue
+
+    # Save once, only if a Video URL cell actually changed.
+    if changed:
+        wb.save(XLSX)
+        print("Saved schedule.xlsx (new Video URL(s) written).")
+    else:
+        print("No new uploads — schedule.xlsx not re-saved.")
 
     # 5. Summary
     print("\nSummary:")
