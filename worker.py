@@ -14,7 +14,7 @@ GRAPH = "https://graph.facebook.com/v21.0"
 IST = pytz.timezone("Asia/Kolkata")
 XLSX = "schedule.xlsx"
 ALREADY_STATUSES = {"posted", "published", "missed", "failed", "posting"}
-DUE_WINDOW_MIN = 10  # post only if within 10 min after scheduled time
+DUE_WINDOW_MIN = 40  # post only if within 40 min after scheduled time (covers GitHub cron lag)
 
 
 def log(msg):
