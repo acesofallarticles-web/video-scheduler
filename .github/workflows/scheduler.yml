@@ -2,7 +2,8 @@ name: Reel Scheduler
 
 on:
   schedule:
-    - cron: "32 4,9,12 * * *"
+    - cron: "2 10,15,18 * * *"
+      timezone: "Asia/Kolkata"
   workflow_dispatch:
 
 permissions:
