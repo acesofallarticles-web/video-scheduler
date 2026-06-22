@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 GRAPH = "https://graph.facebook.com/v21.0"
 IST = pytz.timezone("Asia/Kolkata")
 XLSX = "schedule.xlsx"
-ALREADY_STATUSES = {"posted", "published", "missed", "failed", "posting"}
-DUE_WINDOW_MIN = 40  # post only if within 40 min after scheduled time (covers GitHub cron lag)
+ALREADY_STATUSES = {"posted", "published", "failed", "posting"}
+POST_GAP_SECONDS = 30  # gentle pacing between consecutive posts in one run
 
 
 def log(msg):
@@ -163,9 +163,9 @@ def main():
             f"{[c.value for c in ws[1] if c.value]}")
         sys.exit(1)  # genuine config error -> non-zero
 
-    # Scan all rows -> classify
-    due_rows = []     # (row, scheduled_dt, name, caption)
-    missed_rows = []  # row numbers
+    # Scan all rows -> classify. A row is DUE if it's pending and its time is past
+    # (no matter how far past). Future rows are left scheduled. Nothing is "Missed".
+    due_rows = []  # (row, scheduled_dt, name, caption, video_url)
     for r in range(2, ws.max_row + 1):
         name = ws[f"{cols['name']}{r}"].value
         if name is None or str(name).strip() == "":
@@ -192,51 +192,56 @@ def main():
             log(f"Row {r}: BAD_DATE ({raw_dt!r}) -> skipping")
             continue
 
-        delta_min = (now - dt).total_seconds() / 60.0  # positive => past
-        if delta_min < 0:
-            continue  # future -> skip
-        elif delta_min <= DUE_WINDOW_MIN:
-            due_rows.append((r, dt, name, str(caption).strip()))
-        else:
-            missed_rows.append(r)
+        if dt > now:
+            continue  # future -> leave scheduled
 
-    # 5. Handle missed rows first (never post late)
-    for r in missed_rows:
-        log(f"Row {r}: MISSED (more than {DUE_WINDOW_MIN} min late) -> marking Missed")
-        set_status(r, "Missed")
+        raw_url = ws[f"{cols['video_url']}{r}"].value
+        video_url = str(raw_url).strip() if raw_url is not None else ""
+        due_rows.append((r, dt, name, str(caption).strip(), video_url))
 
-    # 6. Pick the single earliest DUE row
+    # No due reels?
     if not due_rows:
-        log("No reel due. Nothing to post.")
+        log("No reels due. Nothing to post.")
         sys.exit(0)
 
+    # Post ALL due reels, oldest scheduled time first.
     due_rows.sort(key=lambda x: x[1])
-    row, dt, name, caption = due_rows[0]
-    log(f"DUE reel selected: row {row} | {name} | scheduled {dt.strftime('%Y-%m-%d %H:%M %Z')}")
+    log(f"{len(due_rows)} due reel(s) to post this run.")
 
-    # Lock the row immediately so an overlapping run can't re-pick it.
-    set_status(row, "Posting")
-    log(f"Marked row {row} as Posting (lock)")
+    posted = 0
+    failed = 0
+    for i, (row, dt, name, caption, video_url) in enumerate(due_rows):
+        log(f"--- Due reel {i + 1}/{len(due_rows)}: row {row} | {name} | "
+            f"scheduled {dt.strftime('%Y-%m-%d %H:%M %Z')} ---")
 
-    # 7a. Read the pre-uploaded Cloudinary URL for this row
-    raw_url = ws[f"{cols['video_url']}{row}"].value
-    video_url = str(raw_url).strip() if raw_url is not None else ""
-    if video_url == "":
-        log(f"Row {row}: no Video URL — the video was never pushed/uploaded.")
-        set_status(row, "Failed (no video URL)")
-        log(f"Marked row {row} as Failed (no video URL).")
-        sys.exit(0)
+        # a. Lock the row immediately.
+        set_status(row, "Posting")
+        log(f"Marked row {row} as Posting (lock)")
 
-    # 7b-d. Post from the pre-uploaded URL, then record result
-    try:
-        media_id = post_reel(video_url, caption)
-    except Exception as e:
-        log(f"Row {row}: POST FAILED -> {e}")
-        set_status(row, "Failed")
-        sys.exit(0)
+        # b. Need a pre-uploaded Cloudinary URL.
+        if video_url == "":
+            log(f"Row {row}: no Video URL — the video was never pushed/uploaded.")
+            set_status(row, "Failed (no video URL)")
+            failed += 1
+        else:
+            # c. Post from the pre-uploaded URL, then record result.
+            try:
+                media_id = post_reel(video_url, caption)
+                set_status(row, "Posted")
+                log(f"POSTED row {row}: {name} (Media ID: {media_id})")
+                posted += 1
+            except Exception as e:
+                log(f"Row {row}: POST FAILED -> {e}")
+                set_status(row, "Failed")
+                failed += 1
 
-    set_status(row, "Posted")
-    log(f"POSTED row {row}: {name} (Media ID: {media_id})")
+        # d. Gentle pacing before the next due reel (skip after the last one).
+        if i < len(due_rows) - 1:
+            log(f"Sleeping {POST_GAP_SECONDS}s before next post...")
+            time.sleep(POST_GAP_SECONDS)
+
+    # 7. Summary
+    log(f"Run complete. Posted: {posted} | Failed: {failed}")
     sys.exit(0)
 
 
