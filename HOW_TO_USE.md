@@ -1,6 +1,6 @@
 # 📅 Reel Scheduler — How To Use (Daily Guide)
 
-Your Instagram reel scheduler. You add reels, it posts them automatically — PC can be off.
+Your Instagram reel scheduler. You add reels from your PC, then post them with one tap in the GitHub app — your PC can be off when you post.
 
 ---
 
@@ -26,7 +26,14 @@ push.py automatically does everything in the safe order:
 
 Wait for: \`PUSH COMPLETE\`
 
-**That's it. Turn your PC off. The cloud posts each reel at its time.**
+**That's it for adding reels. Your PC can now be off.**
+
+**3. POST (from your phone, around each slot)**
+- Open the **GitHub app** → your `video-scheduler` repo → **Actions** tab → **Reel Scheduler**.
+- Tap **"Run workflow"**.
+- **One tap posts ALL currently-due reels** (any reel whose time has passed and isn't already posted), **oldest first**, a few seconds apart.
+
+So you just tap "Run workflow" around each posting slot (e.g. after 10 AM, 3 PM, 6 PM). It doesn't have to be exact — whatever is due will go out on the next tap. There is **no automatic timer**; nothing posts until you tap.
 
 > 💡 push.py now syncs by itself. You only run \`sync.py\` separately if you just want
 > to refresh statuses into your local Excel WITHOUT uploading anything (e.g. to check
@@ -41,29 +48,29 @@ Wait for: \`PUSH COMPLETE\`
 | Reel Name | ✅ Yes | EXACT filename, including \`.mp4\`. e.g. \`reel-7.mp4\` |
 | Caption | ✅ Yes | Emojis + hashtags fine |
 | Date & Time of Publish | ✅ Yes | Format: \`20-Jun-2026, 6:00 PM\` (IST) |
-| Status | ❌ No — leave blank | App writes: Posted / Missed / Failed |
+| Status | ❌ No — leave blank | App writes: Posted / Failed |
 | Video URL | ❌ No — leave blank | App fills after upload |
 
 ---
 
 ## ⏰ TIMING — IMPORTANT
 
-- The cloud checks every ~10 minutes, and GitHub is often **5–15 min late**.
-- A reel set for \`6:00 PM\` may actually post **6:05–6:15 PM**. This is normal (free tier).
-- **Never schedule two reels less than ~15 min apart** — only one posts per check.
-- A reel more than 10 min past its time when first seen = marked **Missed** (never posts late, by design).
+- **Posting is manual.** Nothing posts on its own — a reel goes live only when you tap **"Run workflow"** in the GitHub app.
+- The Date & Time in the Excel just decides *when a reel becomes due* (eligible to post). It is not an automatic timer.
+- **One tap posts everything that's currently due**, oldest first. Tap a bit after each slot (e.g. just after 10 AM, 3 PM, 6 PM).
+- Being late to tap is fine — a reel that's overdue stays due and posts on your next tap. Reels are **never** skipped for being late.
+- You can schedule reels as close together as you like — a single tap posts all of them, in scheduled order.
 
 ---
 
 ## 🚦 WHAT THE STATUSES MEAN
 
 - **Posted** → went live ✅
-- **Missed** → its time passed before the app saw it; never posted.
 - **Failed** → tried to post but errored (bad video, expired token). Check the reel/video.
 - **Posting** → ⚠️ a run got interrupted mid-post. Check Instagram manually: if it posted, set Status to \`Posted\`; if not, clear the cell to retry.
-- **(blank)** → scheduled, waiting.
+- **(blank)** → due or waiting; will post on your next "Run workflow" tap once its time has passed.
 
-To re-try a Missed/Failed reel: clear its Status cell + set a new future time → run \`push.py\`.
+To re-try a Failed reel: clear its Status cell → run \`push.py\` → tap "Run workflow" (it's due immediately if its time has passed).
 
 ---
 
@@ -104,4 +111,4 @@ and update it in TWO places:
 |---|---|---|
 | \`.\.venv\Scripts\python.exe push.py\` | Sync + upload videos + push schedule | **Every time you add/edit reels** (main command) |
 | \`.\.venv\Scripts\python.exe sync.py\` | Just pull latest statuses into local Excel | Only to check what posted, without uploading |
-| \`.\.venv\Scripts\python.exe worker.py\` | Post any due reel right now from your PC | Rare — manual/testing only; the cloud does this automatically |
+| \`.\.venv\Scripts\python.exe worker.py\` | Post all currently-due reels right now from your PC | Optional — same job as tapping "Run workflow", but run from your PC instead of the phone |
